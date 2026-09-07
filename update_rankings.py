@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from io import StringIO
 from datetime import datetime, timezone
 from pathlib import Path
 from difflib import SequenceMatcher
@@ -120,7 +121,7 @@ def parse_aa():
     html = fetch(AA)
 
     try:
-        tables = pd.read_html(html)
+        tables = pd.read_html(StringIO(html))
     except Exception as e:
         raise RuntimeError(
             f"Não foi possível interpretar tabelas da Artificial Analysis: {e}"
@@ -267,7 +268,7 @@ def parse_arena():
         return []
 
     try:
-        tables = pd.read_html(html)
+        tables = pd.read_html(StringIO(html))
     except Exception:
         print(
             "Aviso Arena: nenhuma tabela HTML legível encontrada."
