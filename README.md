@@ -21,7 +21,7 @@ Com a página aberta, a interface verifica `models.json` a cada cinco minutos e 
 - **Arena:** score de preferência humana e classificação de pesos apenas quando o nome e a variante coincidem exatamente. Não há associação por semelhança aproximada nem inferência de licença pela família.
 - `1k` significa 1.000 tokens e `1M`, 1.000.000 tokens.
 - Campos ausentes permanecem `null` e aparecem como “—”. Tempo por tarefa não é convertido em velocidade de geração. A velocidade em tokens/s aparece na ficha somente se a fonte publicar essa unidade.
-- O ranking inicial usa o Intelligence Index. Não existe nota combinada própria ou recomendações fixas de modelos para código, imagem ou vídeo.
+- O ranking inicial usa o Intelligence Index. Não existe nota combinada própria. A aba Escolha por objetivo usa evidências específicas por modalidade, com data própria e resultados preservados quando a fonte falha.
 - SWEN.AI não alimenta a coleta automática. Não é exibida como fonte ativa.
 
 A captura de tabelas públicas pode parar se as fontes mudarem de estrutura, bloquearem acesso ou saírem do ar. A validação interrompe atualizações da fonte principal quando a tabela é inválida ou a contagem cai mais de 35%; o último snapshot publicado permanece disponível com sua data original. Falhas da Arena não impedem a atualização das métricas técnicas e são indicadas na interface. Automação reduz trabalho rotineiro; mudanças das fontes podem exigir manutenção do coletor.
@@ -58,3 +58,9 @@ A pasta `_site/` contém apenas os arquivos publicados. `--source-dir /caminho` 
 O ponteiro usa uma ponta triangular branca, sem haste inferior, sem tracinhos fixos nas áreas comuns; sobre botões e links alterna para uma mão branca menor e com traço fino. Mantém o cursor de texto nos campos de edição. O efeito tem halo duplo, rastro e onda ao clicar; não bloqueia cliques, pode ser desligado e respeita `prefers-reduced-motion` e telas de toque. Atalho `/` abre a busca; `Esc` fecha as janelas. Preferências de tema e cursor são guardadas somente no navegador.
 
 O cursor de mão foi adaptado do [Lucide Pointer](https://github.com/lucide-icons/lucide/blob/main/icons/pointer.svg), com indicador encurtado e silhueta branca. Licença ISC preservada em `assets/LUCIDE-LICENSE.txt`.
+
+## Escolha por objetivo
+
+São seis categorias: código (AA Coding Agent Index v2.0, modelo único, três componentes completos, sem roteadores), imagem (Arena Text-to-Image), vídeo (Arena Text-to-Video), apps (Arena WebDev Fullstack), sites (Arena WebDev Frontend) e texto (Arena Creative Writing). O cartão mostra o líder, sua variante, score, fonte, data do ranking quando publicada e última verificação; a ficha inclui duas alternativas. Empates e resultados preliminares são sinalizados. Apps significa aplicações web, não apps nativos móveis; texto significa escrita criativa.
+
+`scripts/objectives.py` tenta atualizar cada modalidade diariamente, em paralelo. Se a fonte bloquear a coleta ou mudar de estrutura, preserva a recomendação anterior **sem mudar sua data de verificação**. O primeiro snapshot da Arena foi conferido diretamente nas páginas oficiais em 05/11/2026; não se usa o índice geral para inventar substitutos. Os scores entre modalidades não são somados nem comparados.

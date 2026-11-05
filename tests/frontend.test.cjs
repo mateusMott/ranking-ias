@@ -95,13 +95,14 @@ test('stale data never receives a fresh status after a successful fetch',async (
   } finally {app.close();}
 });
 
-test('a new live dataset updates cards and recommendations without hardcoded model IDs',async () => {
+test('a new live dataset updates highlights without hardcoded model IDs',async () => {
   const data = base();data.updated_at = '2026-01-01T00:00:00Z';
   const fetched = base();fetched.models[1].intelligence = 65;
   const app = await boot({data,fetched});try {
     assert.equal(app.d.querySelector('#leaderName').textContent,'Beta');
     click(app,'[data-view="recommendations"]');assert.equal(app.d.querySelector('#rankingView').hidden,true);
-    assert.match(app.d.querySelector('#recs .rec-selection').textContent,/Beta/);
+    assert.equal(app.d.querySelectorAll('#recs .rec-card').length,6);
+    assert.doesNotMatch(app.d.querySelector('#recs').textContent,/Menor custo|Mais capacidade/);
     click(app,'#methodNav');assert.equal(app.errors.length,0);
     click(app,'[data-view="ranking"]');assert.equal(app.d.querySelector('#rankingView').hidden,false);
   } finally {app.close();}
@@ -183,6 +184,25 @@ test('new cursor follows the pointer, reacts to press and cleans up its trail on
     app.d.documentElement.dispatchEvent(new app.w.MouseEvent('pointerleave'));
     assert.equal(ring.classList.contains('active'),false);
     assert.equal(app.d.querySelectorAll('.cursor-trail.active').length,0);
+    assert.deepEqual(app.errors,[]);
+  } finally {app.close();}
+});
+
+test('six practical objectives use their own evidence and show preserved and preliminary data',async () => {
+  const data=base();const published=JSON.parse(fs.readFileSync(path.join(root,'models.json'),'utf8'));
+  data.objectives=JSON.parse(JSON.stringify(published.objectives));
+  data.objectives[1].status='preserved';
+  const app=await boot({data});try {
+    click(app,'[data-view="recommendations"]');
+    assert.deepEqual([...app.d.querySelectorAll('#recs h3')].map(n=>n.textContent),['Código','Imagem','Vídeo','Criar apps','Criar sites','Texto']);
+    assert.equal(app.d.querySelectorAll('#recs .task-winner').length,6);
+    assert.match(app.d.querySelector('#recs').textContent,/GPT-Image-2.5 Sunburst/);
+    assert.match(app.d.querySelector('#recs').textContent,/Preliminar/);
+    assert.match(app.d.querySelector('#recs').textContent,/preservada/);
+    click(app,'[data-objective="image"]');
+    assert.match(app.d.querySelector('#dialogTitle').textContent,/GPT-Image/);
+    assert.equal(app.d.querySelectorAll('.task-ranking li').length,3);
+    assert.match(app.d.querySelector('#dialogContent').textContent,/Text-to-Image/);
     assert.deepEqual(app.errors,[]);
   } finally {app.close();}
 });

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
+from scripts.objectives import collect_objectives
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -254,6 +255,7 @@ def update(source_dir=None):
             {'name': 'LiveBench', 'url': LIVEBENCH, 'ok': livebench_ok, 'checked_at': now,
              'release': livebench.get('release') if livebench else None},
         ],
+        'objectives': collect_objectives(old.get('objectives', []), fetch, source_dir),
         'supplementary': {'livebench': livebench},
         'models': models, 'warnings': warnings,
         'notes': 'Custo por tarefa em USD; tempo por tarefa em minutos; primeiro token de resposta em segundos; contexto em tokens. Pesos abertos só são declarados quando confirmados na Arena para a mesma variante.',
