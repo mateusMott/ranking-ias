@@ -191,16 +191,16 @@ test('new cursor follows the pointer, reacts to press and cleans up its trail on
 test('six practical objectives use their own evidence and show preserved and preliminary data',async () => {
   const data=base();const published=JSON.parse(fs.readFileSync(path.join(root,'models.json'),'utf8'));
   data.objectives=JSON.parse(JSON.stringify(published.objectives));
-  data.objectives[1].status='preserved';
+  data.objectives[1].status='preserved';data.objectives[1].leaders[0].preliminary=true;
   const app=await boot({data});try {
     click(app,'[data-view="recommendations"]');
     assert.deepEqual([...app.d.querySelectorAll('#recs h3')].map(n=>n.textContent),['Código','Imagem','Vídeo','Criar apps','Criar sites','Texto']);
     assert.equal(app.d.querySelectorAll('#recs .task-winner').length,6);
-    assert.match(app.d.querySelector('#recs').textContent,/GPT-Image-2.5 Sunburst/);
+    assert.ok(app.d.querySelector('#recs').textContent.includes(data.objectives[1].leaders[0].name));
     assert.match(app.d.querySelector('#recs').textContent,/Preliminar/);
     assert.match(app.d.querySelector('#recs').textContent,/preservada/);
     click(app,'[data-objective="image"]');
-    assert.match(app.d.querySelector('#dialogTitle').textContent,/GPT-Image/);
+    assert.equal(app.d.querySelector('#dialogTitle').textContent,data.objectives[1].leaders[0].name);
     assert.equal(app.d.querySelectorAll('.task-ranking li').length,3);
     assert.match(app.d.querySelector('#dialogContent').textContent,/Text-to-Image/);
     assert.deepEqual(app.errors,[]);
