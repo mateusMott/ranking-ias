@@ -1,693 +1,214 @@
 #!/usr/bin/env python3
-
+"""Collect public leaderboards without guessing missing metrics or model variants."""
 from __future__ import annotations
-
+import argparse
 import json
+import math
+import os
 import re
+import tempfile
 import unicodedata
-from io import StringIO
 from datetime import datetime, timezone
 from pathlib import Path
-from difflib import SequenceMatcher
-
 import requests
-import pandas as pd
-
-
-# =========================================================
-# CONFIGURAÇÃO
-# =========================================================
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "models.json"
-
-AA = "https://artificialanalysis.ai/leaderboards/models/"
-ARENA = "https://arena.ai/leaderboard/text"
-SWEN = "https://swen.ai/"
-
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/151 Safari/537.36"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-TIMEOUT = 35
+DATA = ROOT / 'models.json'
+AA = 'https://artificialanalysis.ai/leaderboards/models/'
+ARENA = 'https://arena.ai/leaderboard/text'
 
 
-# =========================================================
-# UTILIDADES
-# =========================================================
-
-def norm(s):
-    s = unicodedata.normalize("NFKD", str(s))
-    s = s.encode("ascii", "ignore").decode().lower()
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+def norm(value):
+    value = unicodedata.normalize('NFKD', str(value)).encode('ascii', 'ignore').decode().lower()
+    return re.sub(r'[^a-z0-9]+', ' ', value).strip()
 
 
-def slug(s):
-    return re.sub(r"[^a-z0-9]+", "-", norm(s)).strip("-")[:80]
-
-
-def num(v):
-    if v is None:
+def num(value):
+    text = str(value if value is not None else '').strip().replace('\u202f', '').replace('\u00a0', '')
+    if text.lower() in {'', 'none', 'nan', 'n/a', '—', '-'} or re.search(r'[<>≤≥]', text):
         return None
+    match = re.search(r'-?\d+(?:\.\d+)?', text.replace(',', ''))
+    result = float(match.group()) if match else None
+    return result if result is not None and math.isfinite(result) else None
 
-    s = str(v).strip()
 
-    if not s or s.lower() == "nan":
+def context_tokens(value):
+    number = num(value)
+    if number is None:
         return None
-
-    s = s.replace(",", "")
-
-    m = re.search(r"-?\d+(?:\.\d+)?", s)
-
-    return float(m.group()) if m else None
-
-
-def context_k(v):
-    if v is None:
-        return None
-
-    s = str(v).lower().replace(",", "").strip()
-    n = num(s)
-
-    if n is None:
-        return None
-
-    if "m" in s:
-        return round(n * 1024)
-
-    if "k" in s:
-        return round(n)
-
-    return round(n)
+    text = str(value).strip().lower()
+    multiplier = 1_000_000 if re.search(r'\d\s*m', text) else 1_000 if re.search(r'\d\s*k', text) else 1
+    return round(number * multiplier)
 
 
 def fetch(url):
-    print(f"Buscando: {url}")
-
-    r = requests.get(
-        url,
-        headers=HEADERS,
-        timeout=TIMEOUT
-    )
-
-    r.raise_for_status()
-
-    content_type = r.headers.get("content-type", "")
-
-    if "text/html" not in content_type:
-        print(
-            f"Aviso: resposta inesperada de {url}: "
-            f"{content_type}"
-        )
-
-    print(
-        f"Resposta recebida: status={r.status_code}, "
-        f"{len(r.text)} caracteres"
-    )
-
-    return r.text
+    session = requests.Session()
+    session.headers['User-Agent'] = 'ModelScope/2.0 (public leaderboard reader; daily)'
+    session.mount('https://', HTTPAdapter(max_retries=Retry(
+        total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=['GET'], respect_retry_after_header=False,
+    )))
+    response = session.get(url, timeout=(10, 40))
+    response.raise_for_status()
+    return response.text
 
 
-# =========================================================
-# ARTIFICIAL ANALYSIS
-# =========================================================
+def leaderboard(html, required):
+    soup = BeautifulSoup(html, 'html.parser')
+    for table in soup.find_all('table'):
+        headers = table.select('thead tr') or [r for r in table.find_all('tr') if r.find('th')]
+        for header in reversed(headers):
+            columns = [norm(c.get_text(' ', strip=True)) for c in header.find_all(['th', 'td'], recursive=False)]
+            if all(any(term in c for c in columns) for term in required):
+                rows = []
+                for row in table.select('tbody tr') or table.find_all('tr'):
+                    cells = row.find_all('td', recursive=False)
+                    if len(cells) == len(columns):
+                        rows.append(dict(zip(columns, cells)))
+                if rows:
+                    return rows
+    raise ValueError('Tabela com colunas reconhecidas não encontrada.')
 
-def parse_aa():
-    html = fetch(AA)
 
-    try:
-        tables = pd.read_html(StringIO(html))
-    except Exception as e:
-        raise RuntimeError(
-            f"Não foi possível interpretar tabelas da Artificial Analysis: {e}"
-        )
+def cell(row, *terms):
+    matches = [v for key, v in row.items() if all(t in key for t in terms)]
+    return matches[0].get_text(' ', strip=True) if len(matches) == 1 else None
 
-    target = None
 
-    for table in tables:
-        cols = " | ".join(map(str, table.columns))
-
-        if (
-            "Intelligence" in cols
-            and "Model" in cols
-        ):
-            target = table
-            break
-
-    if target is None:
-        raise RuntimeError(
-            "Tabela principal da Artificial Analysis não encontrada"
-        )
-
-    target.columns = [
-        " ".join(
-            str(x)
-            for x in c
-            if str(x) != "nan"
-        ).strip()
-        if isinstance(c, tuple)
-        else str(c)
-        for c in target.columns
-    ]
-
-    out = []
-
-    for _, row in target.iterrows():
-
-        def col(*terms):
-            for c in target.columns:
-                lc = c.lower()
-
-                if all(
-                    term.lower() in lc
-                    for term in terms
-                ):
-                    return row[c]
-
-            return None
-
-        name = col("model")
-
-        if name is None:
+def parse_aa(html):
+    models, seen = [], set()
+    for row in leaderboard(html, ['model', 'intelligence', 'cost']):
+        name, score = cell(row, 'model'), num(cell(row, 'intelligence'))
+        if not name or score is None:
             continue
+        model_id = norm(name).replace(' ', '-')
+        if model_id in seen:
+            raise ValueError(f'Identificador duplicado: {model_id}')
+        seen.add(model_id)
+        tokens = context_tokens(cell(row, 'context'))
+        # "Time per Task (Minutes)" is not tokens/s. Only explicitly named units qualify.
+        latency = num(cell(row, 'first', 'token', 's'))
+        if latency is None:
+            latency = num(cell(row, 'latency', 's'))
+        models.append({
+            'id': model_id, 'name': name, 'company': cell(row, 'creator') or 'Não informado',
+            'type': 'Não informado', 'intelligence': score,
+            'price': num(cell(row, 'cost', 'task')), 'speed': num(cell(row, 'tokens', 's')),
+            'task_time_minutes': num(cell(row, 'time', 'task', 'minutes')), 'latency': latency,
+            'context': tokens / 1000 if tokens is not None else None, 'context_tokens': tokens,
+            'elo': None, 'sources': 'Artificial Analysis', 'arena_name': None,
+            'description': 'Métricas coletadas do leaderboard público da Artificial Analysis. Campos ausentes não são estimados.',
+        })
+    validate_models(models)
+    return models
 
-        name = str(name).strip()
 
-        if not name or name.lower() == "nan":
+def parse_arena(html):
+    entries = {}
+    for row in leaderboard(html, ['model', 'score']):
+        model_cell = row.get('model')
+        if model_cell is None:
             continue
-
-        creator = col("creator")
-
-        creator = (
-            str(creator).strip()
-            if creator is not None
-            else "—"
-        )
-
-        intelligence = num(col("intelligence"))
-
-        if intelligence is None:
+        link = model_cell.find('a')
+        name = link.get_text(' ', strip=True) if link else None
+        score = num(cell(row, 'score'))
+        if not name or score is None or not 100 < score < 5000:
             continue
+        details = model_cell.get_text(' ', strip=True)
+        model_type = 'Não informado'
+        if re.search(r'\bOpen\s+(?:Weights?|Source)\b', details, re.I):
+            model_type = 'Pesos abertos'
+        elif re.search(r'\bProprietary\b', details, re.I):
+            model_type = 'Proprietário'
+        key = norm(name)
+        entry = {'name': name, 'score': score, 'type': model_type}
+        entries[key] = None if key in entries else entry
+    if not entries:
+        raise ValueError('Nenhum score Arena verificável encontrado.')
+    return entries
 
-        price = (
-            num(col("cost", "task"))
-            or num(col("cost"))
-        )
-
-        speed = (
-            num(col("tokens", "s"))
-            or num(col("speed"))
-        )
-
-        latency = num(col("latency"))
-
-        context = context_k(col("context"))
-
-        out.append(
-            {
-                "id": slug(name),
-                "name": name,
-                "company": creator,
-                "type": "Proprietário",
-
-                "intelligence": intelligence,
-                "price": price,
-                "speed": speed,
-                "latency": latency,
-                "context": context,
-
-                "elo": None,
-
-                "sources": "AA v4.2",
-
-                "description": (
-                    "Métricas atualizadas automaticamente "
-                    "a partir da Artificial Analysis."
-                ),
-
-                "swen": None,
-            }
-        )
-
-    if len(out) < 5:
-        raise RuntimeError(
-            f"Parser da Artificial Analysis retornou apenas {len(out)} modelos"
-        )
-
-    print(
-        f"Artificial Analysis: {len(out)} modelos encontrados"
-    )
-
-    return out
-
-
-# =========================================================
-# ARENA
-# =========================================================
-
-def parse_arena():
-    try:
-        html = fetch(ARENA)
-    except Exception as e:
-        print(
-            f"Aviso Arena: falha ao baixar página: {e}"
-        )
-        return []
-
-    # Proteção contra HTML dinâmico/Next.js sem tabela estática.
-    if "__next_f.push" in html:
-        print(
-            "Aviso Arena: página dinâmica Next.js detectada. "
-            "A coleta da Arena será ignorada nesta execução."
-        )
-        return []
-
-    try:
-        tables = pd.read_html(StringIO(html))
-    except Exception:
-        print(
-            "Aviso Arena: nenhuma tabela HTML legível encontrada."
-        )
-        return []
-
-    if not tables:
-        print(
-            "Aviso Arena: nenhuma tabela encontrada."
-        )
-        return []
-
-    target = max(
-        tables,
-        key=lambda t: len(t)
-    )
-
-    target.columns = [
-        " ".join(
-            str(x)
-            for x in c
-            if str(x) != "nan"
-        ).strip()
-        if isinstance(c, tuple)
-        else str(c)
-        for c in target.columns
-    ]
-
-    rows = []
-
-    for _, row in target.iterrows():
-        name = None
-        score = None
-
-        for c in target.columns:
-            lc = c.lower()
-
-            if (
-                "model" in lc
-                and name is None
-            ):
-                name = row[c]
-
-            if (
-                ("score" in lc or "elo" in lc)
-                and score is None
-            ):
-                score = row[c]
-
-        if name is None or score is None:
-            continue
-
-        n = num(score)
-
-        if n is None:
-            continue
-
-        rows.append(
-            (
-                str(name).strip(),
-                n
-            )
-        )
-
-    print(
-        f"Arena: {len(rows)} entradas encontradas"
-    )
-
-    return rows
-
-
-# =========================================================
-# MATCH DE MODELOS
-# =========================================================
-
-def best_match(name, arena):
-    a = norm(name)
-
-    best = (
-        0,
-        None,
-        None
-    )
-
-    for nm, score in arena:
-        b = norm(nm)
-
-        ratio = SequenceMatcher(
-            None,
-            a,
-            b
-        ).ratio()
-
-        ta = set(a.split())
-        tb = set(b.split())
-
-        overlap = (
-            len(ta & tb)
-            / max(
-                len(ta | tb),
-                1
-            )
-        )
-
-        ratio += 0.15 * overlap
-
-        if ratio > best[0]:
-            best = (
-                ratio,
-                nm,
-                score
-            )
-
-    if best[0] >= 0.68:
-        return best
-
-    return (
-        0,
-        None,
-        None
-    )
-
-
-# =========================================================
-# VALIDAÇÃO
-# =========================================================
 
 def validate_models(models):
-    if len(models) < 5:
-        raise RuntimeError(
-            "Snapshot inválido: poucos modelos"
-        )
-
-    valid_scores = [
-        m["intelligence"]
-        for m in models
-        if m.get("intelligence") is not None
-    ]
-
-    if len(valid_scores) < 5:
-        raise RuntimeError(
-            "Snapshot inválido: inteligência ausente"
-        )
-
-    if max(valid_scores) > 100:
-        raise RuntimeError(
-            "Snapshot inválido: score de inteligência fora da escala esperada"
-        )
-
-    if min(valid_scores) < 0:
-        raise RuntimeError(
-            "Snapshot inválido: score negativo"
-        )
+    if len(models) < 5 or len({m['id'] for m in models}) != len(models):
+        raise ValueError('Poucos modelos válidos ou identificadores duplicados.')
+    for model in models:
+        if not 0 <= model['intelligence'] <= 100:
+            raise ValueError('Índice de inteligência fora da escala reconhecida.')
+        for key in ['price', 'speed', 'task_time_minutes', 'latency', 'context_tokens']:
+            value = model.get(key)
+            if value is not None and (not isinstance(value, (float, int)) or not math.isfinite(value) or value < 0):
+                raise ValueError(f'Métrica inválida: {key}')
 
 
-# =========================================================
-# MAIN
-# =========================================================
-
-def main():
-
-    errors = []
-
-    old = None
-
-    if DATA.exists():
-        try:
-            old = json.loads(
-                DATA.read_text(
-                    encoding="utf-8"
-                )
-            )
-        except Exception:
-            print(
-                "Aviso: models.json existente não pôde ser lido."
-            )
-
-    # Artificial Analysis é obrigatória
+def atomic_write(path, content):
+    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix='.modelscope-')
     try:
-        aa = parse_aa()
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
+            handle.write(content)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
-    except Exception as e:
-        aa = []
 
-        errors.append(
-            "Artificial Analysis: "
-            + str(e)
-        )
+def refresh_embedded_snapshot(data, index_path=None):
+    html = (index_path or ROOT / 'index.html').read_text(encoding='utf-8')
+    payload = json.dumps(data, ensure_ascii=False, separators=(',', ':'), allow_nan=False).replace('<', '\\u003c')
+    html, count = re.subn(r'(<script id="snapshot" type="application/json">).*?(</script>)',
+                          lambda m: m[1] + payload + m[2], html, flags=re.S)
+    if count != 1:
+        raise ValueError('Snapshot incorporado não encontrado no HTML.')
+    return html
 
-    # Arena é opcional
+
+def update(source_dir=None):
+    old = json.loads(DATA.read_text(encoding='utf-8')) if DATA.exists() else {}
+    read = (lambda key, url: (source_dir / f'{key}.html').read_text(encoding='utf-8')) if source_dir else (lambda key, url: fetch(url))
+    # Primary-source failures never overwrite the last good snapshot.
+    models = parse_aa(read('aa', AA))
+    if len(models) < len(old.get('models', [])) * .65:
+        raise ValueError('Queda inesperada de mais de 35% na quantidade de modelos; verificar a fonte.')
+    warnings = []
     try:
-        arena = parse_arena()
-
-    except Exception as e:
-        arena = []
-
-        errors.append(
-            "Arena: "
-            + str(e)
-        )
-
-    if not aa:
-        print(
-            "ERRO: Artificial Analysis não pôde ser atualizada."
-        )
-
-        if errors:
-            for error in errors:
-                print(
-                    "-",
-                    error
-                )
-
-        raise SystemExit(
-            "Atualização cancelada para preservar o último snapshot válido."
-        )
-
-    # Enriquece com Arena quando disponível
+        arena = parse_arena(read('arena', ARENA))
+    except (requests.RequestException, ValueError, OSError) as error:
+        arena = {}
+        warnings.append('Arena indisponível nesta coleta. Scores Arena não foram reaproveitados nem estimados.')
+        print(f'Aviso Arena: {error}')
     matched = 0
-
-    for m in aa:
-
-        score = best_match(
-            m["name"],
-            arena
-        )
-
-        if score[1]:
-            m["elo"] = round(
-                score[2]
-            )
-
-            m["sources"] = (
-                "AA v4.2 · Arena"
-            )
-
+    for model in models:
+        match = arena.get(norm(model['name']))  # Exact variant only; no fuzzy matching.
+        if match:
+            model.update(elo=match['score'], type=match['type'], arena_name=match['name'], sources='Artificial Analysis · Arena')
             matched += 1
-
-        text = norm(
-            m["name"]
-            + " "
-            + m["company"]
-        )
-
-        open_terms = [
-            "qwen",
-            "kimi",
-            "glm",
-            "deepseek",
-            "granite",
-            "llama",
-            "mimo",
-            "ling",
-        ]
-
-        if any(
-            x in text
-            for x in open_terms
-        ):
-            m["type"] = (
-                "Código aberto"
-            )
-
-    aa.sort(
-        key=lambda m: (
-            m.get("intelligence")
-            or -1,
-
-            m.get("elo")
-            or -1,
-        ),
-        reverse=True
-    )
-
-    models = aa[:35]
-
-    validate_models(
-        models
-    )
-
-    now = (
-        datetime
-        .now(timezone.utc)
-        .isoformat(
-            timespec="seconds"
-        )
-    )
-
+    models.sort(key=lambda m: (-m['intelligence'], m['name']))
+    now = datetime.now(timezone.utc).isoformat(timespec='seconds')
     result = {
-        "version": (
-            datetime
-            .now()
-            .strftime("%Y-%m-%d")
-        ),
-
-        "updated_at": now,
-
-        "benchmark_version":
-            "Artificial Analysis Intelligence Index v4.2",
-
-        "sources": [
-            {
-                "name":
-                    "Artificial Analysis",
-
-                "url":
-                    AA,
-
-                "ok":
-                    True,
-            },
-
-            {
-                "name":
-                    "Arena",
-
-                "url":
-                    ARENA,
-
-                "ok":
-                    bool(arena),
-
-                "note":
-                    (
-                        None
-                        if arena
-                        else
-                        "Arena indisponível ou página dinâmica; "
-                        "último snapshot técnico preservado."
-                    ),
-            },
-
-            {
-                "name":
-                    "SWEN.AI",
-
-                "url":
-                    SWEN,
-
-                "ok":
-                    False,
-
-                "note":
-                    (
-                        "Fonte editorial complementar; "
-                        "não usada automaticamente enquanto "
-                        "não houver estrutura verificável."
-                    ),
-            },
+        'schema_version': 2, 'version': now[:10], 'updated_at': now,
+        'benchmark_version': 'Artificial Analysis Intelligence Index', 'update_interval_hours': 24,
+        'sources': [
+            {'name': 'Artificial Analysis', 'url': AA, 'ok': True, 'checked_at': now, 'models': len(models)},
+            {'name': 'Arena', 'url': ARENA, 'ok': bool(arena), 'checked_at': now, 'matched_models': matched,
+             'note': 'Associação apenas por nome e variante exatos.' if arena else warnings[0]},
         ],
-
-        "models":
-            models,
-
-        "warnings":
-            errors,
-
-        "notes":
-            (
-                "Gerado automaticamente. "
-                "Artificial Analysis é a fonte técnica primária. "
-                "Arena adiciona preferência humana apenas "
-                "quando a coleta é confiável."
-            ),
+        'models': models, 'warnings': warnings,
+        'notes': 'Custo por tarefa em USD; tempo por tarefa em minutos; primeiro token de resposta em segundos; contexto em tokens. Pesos abertos só são declarados quando confirmados na Arena para a mesma variante.',
     }
-
-    new_json = json.dumps(
-        result,
-        ensure_ascii=False,
-        indent=2
-    )
-
-    # Evita commit desnecessário quando só o timestamp muda.
-    comparable_new = {
-        **result,
-        "updated_at": None,
-        "version": None,
-    }
-
-    comparable_old = None
-
-    if isinstance(old, dict):
-        comparable_old = {
-            **old,
-            "updated_at": None,
-            "version": None,
-        }
-
-    if comparable_old == comparable_new:
-        print(
-            "Nenhuma mudança relevante nos rankings."
-        )
-
-        return
-
-    DATA.write_text(
-        new_json,
-        encoding="utf-8"
-    )
-
-    print(
-        f"Atualização concluída: {len(models)} modelos."
-    )
-
-    print(
-        f"Arena associada a {matched} modelos."
-    )
-
-    if errors:
-        print(
-            f"Avisos: {len(errors)}"
-        )
-
-        for error in errors:
-            print(
-                "-",
-                error
-            )
+    html = refresh_embedded_snapshot(result)  # Validate both outputs before writing.
+    atomic_write(DATA, json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
+    atomic_write(ROOT / 'index.html', html)
+    print(f'Atualizados {len(models)} modelos; {matched} correspondências exatas na Arena.')
+    return result
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source-dir', type=Path, help='HTMLs públicos já baixados para diagnóstico reproduzível')
+    args = parser.parse_args()
+    try:
+        update(args.source_dir)
+    except (requests.RequestException, ValueError, OSError, KeyError) as error:
+        raise SystemExit(f'Atualização cancelada; último snapshot preservado. {error}') from error

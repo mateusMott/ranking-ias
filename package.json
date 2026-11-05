@@ -1,0 +1,9 @@
+{
+  "name": "modelscope",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Buildless public AI benchmark dashboard",
+  "scripts": {"test": "node --test tests/frontend.test.cjs", "check": "node --check assets/app.js"},
+  "devDependencies": {"jsdom": "26.1.0"},
+  "engines": {"node": ">=20"}
+}

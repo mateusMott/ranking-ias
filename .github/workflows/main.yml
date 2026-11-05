@@ -1,49 +1,83 @@
-name: Atualizar rankings de IA
+name: Atualizar e publicar ModelScope
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
   schedule:
-    - cron: "0 11 * * 1"
+    - cron: '17 11 * * *' # Diariamente às 08:17 de Brasília (UTC-3).
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: modelscope-production
+  cancel-in-progress: false
 
 jobs:
-  update-rankings:
+  update-and-build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
-      - name: Baixar repositório
-        uses: actions/checkout@v4
-
-      - name: Configurar Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
       - name: Instalar dependências
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Atualizar rankings
+          npm ci --ignore-scripts
+      - name: Validar coletor e interface
         run: |
-          python update_rankings.py
-
-      - name: Verificar alterações
-        id: changes
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          npm run check
+          npm test
+      - name: Coletar dados públicos
+        id: collect
+        continue-on-error: true
+        run: python update_rankings.py
+      - name: Preservar dados em caso de falha na fonte
+        if: steps.collect.outcome == 'failure'
+        run: echo '::warning::A fonte principal não respondeu ou mudou de estrutura. Publicando a última coleta válida; a data original permanece visível.'
+      - name: Salvar snapshot e cópia incorporada
         run: |
-          if git diff --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+          if ! git diff --quiet -- models.json index.html; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add models.json index.html
+            git commit -m 'chore: atualizar benchmarks públicos'
+            git push
           fi
-
-      - name: Salvar atualização no repositório
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add models.json
-          git commit -m "Atualiza rankings de IA"
-          git push
+      - name: Preparar somente arquivos públicos
+        run: python scripts/build_site.py
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: update-and-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Usar publicação pelo GitHub Actions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow > /dev/null
+      - name: Publicar GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
