@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "version": "2026-11-05",
-  "updated_at": "2026-11-05T15:51:00+00:00",
+  "updated_at": "2026-11-05T16:12:55+00:00",
   "benchmark_version": "Artificial Analysis Intelligence Index",
   "update_interval_hours": 24,
   "sources": [
@@ -9,14 +9,14 @@
       "name": "Artificial Analysis",
       "url": "https://artificialanalysis.ai/leaderboards/models/",
       "ok": true,
-      "checked_at": "2026-11-05T15:51:00+00:00",
+      "checked_at": "2026-11-05T16:12:55+00:00",
       "models": 96
     },
     {
       "name": "Arena",
       "url": "https://arena.ai/leaderboard/text",
       "ok": false,
-      "checked_at": "2026-11-05T15:51:00+00:00",
+      "checked_at": "2026-11-05T16:12:55+00:00",
       "matched_models": 0,
       "note": "Arena indisponível nesta coleta. Scores Arena não foram reaproveitados nem estimados."
     },
@@ -24,8 +24,184 @@
       "name": "LiveBench",
       "url": "https://github.com/LiveBench/livebench.github.io/tree/main/public",
       "ok": true,
-      "checked_at": "2026-11-05T15:51:00+00:00",
+      "checked_at": "2026-11-05T16:12:55+00:00",
       "release": "2026-06-25"
+    }
+  ],
+  "objectives": [
+    {
+      "leaders": [
+        {
+          "name": "Claude Code - Claude Opus 5.5 (Max, Default Fallback)",
+          "score": 61.65,
+          "preliminary": false
+        },
+        {
+          "name": "Claude Code - Claude Sonnet 5.5 (Max, Default Fallback)",
+          "score": 59.34,
+          "preliminary": false
+        },
+        {
+          "name": "Muse Code - Muse Wonder Full (Max)",
+          "score": 58.88,
+          "preliminary": false
+        }
+      ],
+      "metric": "pontos / 100",
+      "source_date": null,
+      "selection": "Maior índice entre agentes com modelo único e três avaliações completas; roteadores excluídos.",
+      "id": "code",
+      "title": "Código",
+      "url": "https://artificialanalysis.ai/agents/coding-agents",
+      "source": "Artificial Analysis · Coding Agent Index v2.0",
+      "description": "Engenharia de software: implementar, corrigir e entender código. A avaliação considera o agente junto do modelo.",
+      "checked_at": "2026-11-05T16:12:55+00:00",
+      "status": "live"
+    },
+    {
+      "source_date": "2026-11-02",
+      "metric": "score Arena",
+      "leaders": [
+        {
+          "name": "GPT-Image-2.5 Sunburst",
+          "score": 1427,
+          "preliminary": true
+        },
+        {
+          "name": "GPT-Image-2.6 Sunburst (Medium)",
+          "score": 1409,
+          "preliminary": true
+        },
+        {
+          "name": "GPT-Image-2.5 Flare",
+          "score": 1399,
+          "preliminary": true
+        }
+      ],
+      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
+      "id": "image",
+      "title": "Imagem",
+      "url": "https://arena.ai/leaderboard/image/text-to-image",
+      "source": "Arena · Text-to-Image",
+      "description": "Gerar imagens a partir de descrições. A escolha segue a preferência humana no ranking desta modalidade.",
+      "checked_at": "2026-11-05T16:08:22+00:00",
+      "status": "preserved"
+    },
+    {
+      "source_date": "2026-09-21",
+      "metric": "score Arena",
+      "leaders": [
+        {
+          "name": "Gemini Omni 1.1 Flash",
+          "score": 1516,
+          "preliminary": false
+        },
+        {
+          "name": "gemini-omni-flash",
+          "score": 1513,
+          "preliminary": false
+        },
+        {
+          "name": "FLUX 3 Video",
+          "score": 1493,
+          "preliminary": true
+        }
+      ],
+      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
+      "id": "video",
+      "title": "Vídeo",
+      "url": "https://arena.ai/leaderboard/video/text-to-video",
+      "source": "Arena · Text-to-Video",
+      "description": "Gerar vídeos a partir de texto. O resultado não equivale a um ranking de edição de vídeo ou de áudio.",
+      "checked_at": "2026-11-05T16:08:22+00:00",
+      "status": "preserved"
+    },
+    {
+      "source_date": "2026-10-27",
+      "metric": "score Arena",
+      "leaders": [
+        {
+          "name": "GPT-6 Astra (Max)",
+          "score": 1753,
+          "preliminary": false
+        },
+        {
+          "name": "GPT-6.1 Sol (Max)",
+          "score": 1745,
+          "preliminary": false
+        },
+        {
+          "name": "Claude Opus 5.5 (Max)",
+          "score": 1741,
+          "preliminary": false
+        }
+      ],
+      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
+      "id": "apps",
+      "title": "Criar apps",
+      "url": "https://arena.ai/leaderboard/code/webdev/fullstack",
+      "source": "Arena · WebDev Fullstack",
+      "description": "Criar aplicações web completas, com múltiplas etapas e uso de ferramentas. Não mede apps nativos de Android ou iOS.",
+      "checked_at": "2026-11-05T16:08:22+00:00",
+      "status": "preserved"
+    },
+    {
+      "source_date": "2026-10-27",
+      "metric": "score Arena",
+      "leaders": [
+        {
+          "name": "Claude Opus 5.5 (Max)",
+          "score": 1854,
+          "preliminary": false
+        },
+        {
+          "name": "Claude Sonnet 5.5 (xHigh)",
+          "score": 1807,
+          "preliminary": false
+        },
+        {
+          "name": "Gemini 4 Carbon (High)",
+          "score": 1793,
+          "preliminary": true
+        }
+      ],
+      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
+      "id": "sites",
+      "title": "Criar sites",
+      "url": "https://arena.ai/leaderboard/code/webdev/frontend",
+      "source": "Arena · WebDev Frontend",
+      "description": "Criar páginas, interfaces e código HTML ou React. A nota vem de tarefas de desenvolvimento frontend.",
+      "checked_at": "2026-11-05T16:08:22+00:00",
+      "status": "preserved"
+    },
+    {
+      "source_date": "2026-10-27",
+      "metric": "score Arena",
+      "leaders": [
+        {
+          "name": "Claude Opus 5.5 (High)",
+          "score": 1520,
+          "preliminary": false
+        },
+        {
+          "name": "Gemini 4 Argon (High)",
+          "score": 1517,
+          "preliminary": false
+        },
+        {
+          "name": "Gemini 4 Carbon (High)",
+          "score": 1515,
+          "preliminary": true
+        }
+      ],
+      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
+      "id": "text",
+      "title": "Texto",
+      "url": "https://arena.ai/leaderboard/chat/text/creative-writing",
+      "source": "Arena · Escrita criativa",
+      "description": "Escrever e revisar conteúdo criativo. Para textos factuais ou especializados, confirme as informações na fonte.",
+      "checked_at": "2026-11-05T16:08:22+00:00",
+      "status": "preserved"
     }
   ],
   "supplementary": {
@@ -381,7 +557,7 @@
           }
         }
       ],
-      "collected_at": "2026-11-05T15:51:00+00:00"
+      "collected_at": "2026-11-05T16:12:55+00:00"
     }
   },
   "models": [
@@ -2021,181 +2197,5 @@
   "warnings": [
     "Arena indisponível nesta coleta. Scores Arena não foram reaproveitados nem estimados."
   ],
-  "notes": "Custo por tarefa em USD; tempo por tarefa em minutos; primeiro token de resposta em segundos; contexto em tokens. Pesos abertos só são declarados quando confirmados na Arena para a mesma variante.",
-  "objectives": [
-    {
-      "leaders": [
-        {
-          "name": "Claude Code - Claude Opus 5.5 (Max, Default Fallback)",
-          "score": 61.65,
-          "preliminary": false
-        },
-        {
-          "name": "Claude Code - Claude Sonnet 5.5 (Max, Default Fallback)",
-          "score": 59.34,
-          "preliminary": false
-        },
-        {
-          "name": "Muse Code - Muse Wonder Full (Max)",
-          "score": 58.88,
-          "preliminary": false
-        }
-      ],
-      "metric": "pontos / 100",
-      "source_date": null,
-      "selection": "Maior índice entre agentes com modelo único e três avaliações completas; roteadores excluídos.",
-      "id": "code",
-      "title": "Código",
-      "url": "https://artificialanalysis.ai/agents/coding-agents",
-      "source": "Artificial Analysis · Coding Agent Index v2.0",
-      "description": "Engenharia de software: implementar, corrigir e entender código. A avaliação considera o agente junto do modelo.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    },
-    {
-      "source_date": "2026-11-02",
-      "metric": "score Arena",
-      "leaders": [
-        {
-          "name": "GPT-Image-2.5 Sunburst",
-          "score": 1427,
-          "preliminary": true
-        },
-        {
-          "name": "GPT-Image-2.6 Sunburst (Medium)",
-          "score": 1409,
-          "preliminary": true
-        },
-        {
-          "name": "GPT-Image-2.5 Flare",
-          "score": 1399,
-          "preliminary": true
-        }
-      ],
-      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
-      "id": "image",
-      "title": "Imagem",
-      "url": "https://arena.ai/leaderboard/image/text-to-image",
-      "source": "Arena · Text-to-Image",
-      "description": "Gerar imagens a partir de descrições. A escolha segue a preferência humana no ranking desta modalidade.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    },
-    {
-      "source_date": "2026-09-21",
-      "metric": "score Arena",
-      "leaders": [
-        {
-          "name": "Gemini Omni 1.1 Flash",
-          "score": 1516,
-          "preliminary": false
-        },
-        {
-          "name": "gemini-omni-flash",
-          "score": 1513,
-          "preliminary": false
-        },
-        {
-          "name": "FLUX 3 Video",
-          "score": 1493,
-          "preliminary": true
-        }
-      ],
-      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
-      "id": "video",
-      "title": "Vídeo",
-      "url": "https://arena.ai/leaderboard/video/text-to-video",
-      "source": "Arena · Text-to-Video",
-      "description": "Gerar vídeos a partir de texto. O resultado não equivale a um ranking de edição de vídeo ou de áudio.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    },
-    {
-      "source_date": "2026-10-27",
-      "metric": "score Arena",
-      "leaders": [
-        {
-          "name": "GPT-6 Astra (Max)",
-          "score": 1753,
-          "preliminary": false
-        },
-        {
-          "name": "GPT-6.1 Sol (Max)",
-          "score": 1745,
-          "preliminary": false
-        },
-        {
-          "name": "Claude Opus 5.5 (Max)",
-          "score": 1741,
-          "preliminary": false
-        }
-      ],
-      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
-      "id": "apps",
-      "title": "Criar apps",
-      "url": "https://arena.ai/leaderboard/code/webdev/fullstack",
-      "source": "Arena · WebDev Fullstack",
-      "description": "Criar aplicações web completas, com múltiplas etapas e uso de ferramentas. Não mede apps nativos de Android ou iOS.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    },
-    {
-      "source_date": "2026-10-27",
-      "metric": "score Arena",
-      "leaders": [
-        {
-          "name": "Claude Opus 5.5 (Max)",
-          "score": 1854,
-          "preliminary": false
-        },
-        {
-          "name": "Claude Sonnet 5.5 (xHigh)",
-          "score": 1807,
-          "preliminary": false
-        },
-        {
-          "name": "Gemini 4 Carbon (High)",
-          "score": 1793,
-          "preliminary": true
-        }
-      ],
-      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
-      "id": "sites",
-      "title": "Criar sites",
-      "url": "https://arena.ai/leaderboard/code/webdev/frontend",
-      "source": "Arena · WebDev Frontend",
-      "description": "Criar páginas, interfaces e código HTML ou React. A nota vem de tarefas de desenvolvimento frontend.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    },
-    {
-      "source_date": "2026-10-27",
-      "metric": "score Arena",
-      "leaders": [
-        {
-          "name": "Claude Opus 5.5 (High)",
-          "score": 1520,
-          "preliminary": false
-        },
-        {
-          "name": "Gemini 4 Argon (High)",
-          "score": 1517,
-          "preliminary": false
-        },
-        {
-          "name": "Gemini 4 Carbon (High)",
-          "score": 1515,
-          "preliminary": true
-        }
-      ],
-      "selection": "Maior score da modalidade; diferenças pequenas e intervalos sobrepostos não garantem superioridade.",
-      "id": "text",
-      "title": "Texto",
-      "url": "https://arena.ai/leaderboard/chat/text/creative-writing",
-      "source": "Arena · Escrita criativa",
-      "description": "Escrever e revisar conteúdo criativo. Para textos factuais ou especializados, confirme as informações na fonte.",
-      "checked_at": "2026-11-05T16:08:22+00:00",
-      "status": "reviewed"
-    }
-  ]
+  "notes": "Custo por tarefa em USD; tempo por tarefa em minutos; primeiro token de resposta em segundos; contexto em tokens. Pesos abertos só são declarados quando confirmados na Arena para a mesma variante."
 }
