@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "version": "2026-11-05",
-  "updated_at": "2026-11-05T11:09:44+00:00",
+  "updated_at": "2026-11-05T11:13:39+00:00",
   "benchmark_version": "Artificial Analysis Intelligence Index",
   "update_interval_hours": 24,
   "sources": [
@@ -9,14 +9,14 @@
       "name": "Artificial Analysis",
       "url": "https://artificialanalysis.ai/leaderboards/models/",
       "ok": true,
-      "checked_at": "2026-11-05T11:09:44+00:00",
+      "checked_at": "2026-11-05T11:13:39+00:00",
       "models": 96
     },
     {
       "name": "Arena",
       "url": "https://arena.ai/leaderboard/text",
       "ok": false,
-      "checked_at": "2026-11-05T11:09:44+00:00",
+      "checked_at": "2026-11-05T11:13:39+00:00",
       "matched_models": 0,
       "note": "Arena indisponível nesta coleta. Scores Arena não foram reaproveitados nem estimados."
     }
