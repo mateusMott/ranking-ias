@@ -55,4 +55,4 @@ python scripts/build_site.py
 
 A pasta `_site/` contém apenas os arquivos publicados. `--source-dir /caminho` permite reproduzir a coleta com arquivos públicos `aa.html` e `arena.html` já baixados. Os testes de interface usam jsdom; não substituem revisão visual em um navegador real.
 
-O ponteiro usa uma mão personalizada branca com detalhes verdes no desktop, mantendo o cursor de texto nos campos de edição. O efeito tem halo duplo, rastro e onda ao clicar; não bloqueia cliques, pode ser desligado e respeita `prefers-reduced-motion` e telas de toque. Atalho `/` abre a busca; `Esc` fecha as janelas. Preferências de tema e cursor são guardadas somente no navegador.
+O ponteiro usa uma seta branca com contorno preto grosso e marcas de clique na navegação, alternando para uma mão branca com contorno preto sobre botões e links. Mantém o cursor de texto nos campos de edição. O efeito tem halo duplo, rastro e onda ao clicar; não bloqueia cliques, pode ser desligado e respeita `prefers-reduced-motion` e telas de toque. Atalho `/` abre a busca; `Esc` fecha as janelas. Preferências de tema e cursor são guardadas somente no navegador.
