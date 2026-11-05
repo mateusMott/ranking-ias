@@ -69,15 +69,33 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.site.outputs.url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - name: Usar publicação pelo GitHub Actions
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow > /dev/null
-      - name: Publicar GitHub Pages
-        id: deployment
+      - name: Identificar a publicação existente
+        id: site
+        run: |
+          echo "type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type)" >> "$GITHUB_OUTPUT"
+          echo "url=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url)" >> "$GITHUB_OUTPUT"
+      - name: Solicitar build do Pages pela branch existente
+        if: steps.site.outputs.type == 'legacy'
+        run: |
+          build_url=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds" --jq .url)
+          for attempt in $(seq 1 60); do
+            status=$(gh api "$build_url" --jq .status)
+            if [ "$status" = 'built' ]; then
+              echo 'Publicação confirmada pelo GitHub Pages.'
+              exit 0
+            fi
+            if [ "$status" = 'errored' ]; then
+              echo '::error::GitHub Pages informou falha no build.'
+              exit 1
+            fi
+            sleep 5
+          done
+          echo '::error::Tempo limite aguardando o build do Pages.'
+          exit 1
+      - name: Publicar pacote em sites configurados por Actions
+        if: steps.site.outputs.type == 'workflow'
         uses: actions/deploy-pages@v4

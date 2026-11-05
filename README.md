@@ -10,7 +10,7 @@ O processo testa o código, consulta Artificial Analysis e Arena, valida as mét
 
 **Endereço previsto do projeto:** https://mateusmott.github.io/ranking-ias/
 
-A publicação configura Pages para GitHub Actions. O primeiro deploy pode depender das políticas da conta ou de regras de aprovação do ambiente `github-pages`. O resultado de cada execução está em [Actions](https://github.com/mateusMott/ranking-ias/actions).
+A publicação preserva a configuração de Pages existente: solicita um build quando a origem é uma branch e usa o pacote `_site/` quando a origem é GitHub Actions. Não tenta mudar configurações administrativas da conta. Regras de aprovação do ambiente `github-pages` podem afetar o primeiro deploy. O resultado de cada execução está em [Actions](https://github.com/mateusMott/ranking-ias/actions).
 
 Com a página aberta, a interface verifica `models.json` a cada cinco minutos e ao voltar à aba ou recuperar conexão. O navegador guarda a última cópia válida. Sem conexão, preserva os dados e mostra o estado real. Coletas com mais de 48 horas recebem aviso de desatualização, mesmo quando o arquivo é carregado com sucesso.
 

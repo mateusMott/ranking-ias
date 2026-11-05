@@ -1,0 +1,10 @@
+# Preserve branch-based GitHub Pages hosting; publish only the dashboard files.
+exclude:
+  - node_modules
+  - tests
+  - scripts
+  - update_rankings.py
+  - requirements.txt
+  - package.json
+  - package-lock.json
+  - README.md
