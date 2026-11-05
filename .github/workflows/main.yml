@@ -1,4 +1,4 @@
-name: Atualizar e publicar ModelScope
+name: Atualizar e publicar IAscore
 
 on:
   push:

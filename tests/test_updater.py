@@ -109,3 +109,16 @@ class CollectorTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class LiveBenchTests(unittest.TestCase):
+    def test_category_scores_require_complete_tasks_and_keep_benchmarks_separate(self):
+        csv_text='model,reason1,reason2,code\n'+'\n'.join(f'LB-{i},60,80,{i+40}' for i in range(5))+'\nPartial,,90,30\n'
+        result=updater.parse_livebench(csv_text,{'Reasoning':['reason1','reason2'],'Coding':['code']},'2026_06_25')
+        self.assertEqual(result['models'][0]['scores']['Reasoning'],70)
+        self.assertIsNone(result['models'][-1]['scores']['Reasoning'])
+        self.assertEqual(result['release'],'2026-06-25')
+        self.assertNotIn('intelligence',result['models'][0])
+        with self.assertRaises(ValueError):
+            updater.parse_livebench(csv_text.replace('60,80','600,80'),{'Reasoning':['reason1','reason2']},'2026_06_25')
+        with self.assertRaises(ValueError):
+            updater.parse_livebench(csv_text,{'Reasoning':['unknown']},'2026_06_25')

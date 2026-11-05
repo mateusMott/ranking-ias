@@ -1,10 +1,10 @@
-# ModelScope
+# IAscore
 
 Painel independente de benchmarks de IA, em português. Interface responsiva, temas claro e escuro, efeito opcional no cursor, busca, filtros, exportação CSV, fichas de modelos e comparação de até três modelos.
 
 ## Atualização automática
 
-O workflow **Atualizar e publicar ModelScope** executa diariamente às **08:17 de Brasília (11:17 UTC)**, em alterações da branch `main` e por execução manual. O GitHub pode atrasar tarefas agendadas.
+O workflow **Atualizar e publicar IAscore** executa diariamente às **08:17 de Brasília (11:17 UTC)**, em alterações da branch `main` e por execução manual. O GitHub pode atrasar tarefas agendadas.
 
 O processo testa o código, consulta Artificial Analysis e Arena, valida as métricas, atualiza `models.json` e o snapshot incorporado em `index.html`, salva ambos e publica os arquivos públicos no GitHub Pages. O workflow usa o `GITHUB_TOKEN` com permissões declaradas; não exige chave paga de API nem depende de um computador ligado.
 
@@ -17,6 +17,7 @@ Com a página aberta, a interface verifica `models.json` a cada cinco minutos e 
 ## Origem e significado dos dados
 
 - **Artificial Analysis:** índice técnico, custo por tarefa em USD, tempo por tarefa em minutos, primeiro token de resposta em segundos e contexto em tokens.
+- **LiveBench 1.0:** fonte complementar coletada do [repositório oficial](https://github.com/LiveBench/livebench.github.io). Descobrimos a edição datada mais recente disponível nesse repositório, validamos o CSV e as categorias e mostramos um top 10 por área. As notas são médias das tarefas da área, apenas com medições completas. A edição fica visível e não se confunde com a data da consulta. Este conjunto não representa o LiveBench 2.0 e não é misturado com o índice da Artificial Analysis. Falhas preservam a cópia complementar com a data original.
 - **Arena:** score de preferência humana e classificação de pesos apenas quando o nome e a variante coincidem exatamente. Não há associação por semelhança aproximada nem inferência de licença pela família.
 - `1k` significa 1.000 tokens e `1M`, 1.000.000 tokens.
 - Campos ausentes permanecem `null` e aparecem como “—”. Tempo por tarefa não é convertido em velocidade de geração. A velocidade em tokens/s aparece na ficha somente se a fonte publicar essa unidade.

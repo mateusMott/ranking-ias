@@ -2,6 +2,8 @@
 """Collect public leaderboards without guessing missing metrics or model variants."""
 from __future__ import annotations
 import argparse
+import csv
+import io
 import json
 import math
 import os
@@ -19,6 +21,8 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / 'models.json'
 AA = 'https://artificialanalysis.ai/leaderboards/models/'
 ARENA = 'https://arena.ai/leaderboard/text'
+LIVEBENCH = 'https://github.com/LiveBench/livebench.github.io/tree/main/public'
+LB_RAW = 'https://raw.githubusercontent.com/LiveBench/livebench.github.io/main/public/'
 
 
 def norm(value):
@@ -46,7 +50,7 @@ def context_tokens(value):
 
 def fetch(url):
     session = requests.Session()
-    session.headers['User-Agent'] = 'ModelScope/2.0 (public leaderboard reader; daily)'
+    session.headers['User-Agent'] = 'IAscore/2.0 (public leaderboard reader; daily)'
     session.mount('https://', HTTPAdapter(max_retries=Retry(
         total=3, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=['GET'], respect_retry_after_header=False,
@@ -131,6 +135,51 @@ def parse_arena(html):
     return entries
 
 
+def parse_livebench(csv_text, categories, release):
+    if not re.fullmatch(r'20\d{2}_\d{2}_\d{2}', release) or not isinstance(categories, dict) or not categories:
+        raise ValueError('Edição ou categorias LiveBench inválidas.')
+    reader = csv.DictReader(io.StringIO(csv_text))
+    columns = reader.fieldnames or []
+    if 'model' not in columns or any(not isinstance(v, list) or not v or any(c not in columns for c in v) for v in categories.values()):
+        raise ValueError('Colunas LiveBench não reconhecidas.')
+    rows, seen = [], set()
+    for row in reader:
+        name = row.get('model', '').strip()
+        if not name or name in seen:
+            raise ValueError('Modelo LiveBench ausente ou duplicado.')
+        seen.add(name)
+        scores = {}
+        for category, tasks in categories.items():
+            values = [num(row.get(task)) for task in tasks]
+            if any(value is not None and not 0 <= value <= 100 for value in values):
+                raise ValueError('Score LiveBench fora da escala 0–100.')
+            # Only complete categories qualify; no imputation or partial averages.
+            scores[category] = round(sum(values) / len(values), 2) if all(v is not None for v in values) else None
+        if any(v is not None for v in scores.values()):
+            rows.append({'name': name, 'scores': scores})
+    if len(rows) < 5:
+        raise ValueError('Poucos resultados LiveBench verificáveis.')
+    return {'release': release.replace('_', '-'), 'series': 'LiveBench 1.0',
+            'url': 'https://livebench.ai/v1/', 'data_url': LB_RAW + f'table_{release}.csv',
+            'categories': list(categories), 'models': rows}
+
+
+def collect_livebench(source_dir=None):
+    if source_dir:
+        release = (source_dir / 'livebench-release.txt').read_text().strip()
+        csv_text = (source_dir / 'livebench.csv').read_text()
+        categories = json.loads((source_dir / 'livebench-categories.json').read_text())
+    else:
+        listing = fetch(LIVEBENCH)
+        releases = re.findall(r'table_(20\d{2}_\d{2}_\d{2})\.csv', listing)
+        if not releases:
+            raise ValueError('Nenhuma edição pública LiveBench encontrada.')
+        release = max(releases)
+        csv_text = fetch(LB_RAW + f'table_{release}.csv')
+        categories = json.loads(fetch(LB_RAW + f'categories_{release}.json'))
+    return parse_livebench(csv_text, categories, release)
+
+
 def validate_models(models):
     if len(models) < 5 or len({m['id'] for m in models}) != len(models):
         raise ValueError('Poucos modelos válidos ou identificadores duplicados.')
@@ -178,6 +227,15 @@ def update(source_dir=None):
         arena = {}
         warnings.append('Arena indisponível nesta coleta. Scores Arena não foram reaproveitados nem estimados.')
         print(f'Aviso Arena: {error}')
+    livebench_ok = False
+    try:
+        livebench = collect_livebench(source_dir)
+        livebench['collected_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        livebench_ok = True
+    except (requests.RequestException, ValueError, OSError) as error:
+        livebench = old.get('supplementary', {}).get('livebench')
+        warnings.append('LiveBench indisponível nesta coleta; a última edição válida, quando existente, foi preservada com a data original.')
+        print(f'Aviso LiveBench: {error}')
     matched = 0
     for model in models:
         match = arena.get(norm(model['name']))  # Exact variant only; no fuzzy matching.
@@ -193,7 +251,10 @@ def update(source_dir=None):
             {'name': 'Artificial Analysis', 'url': AA, 'ok': True, 'checked_at': now, 'models': len(models)},
             {'name': 'Arena', 'url': ARENA, 'ok': bool(arena), 'checked_at': now, 'matched_models': matched,
              'note': 'Associação apenas por nome e variante exatos.' if arena else warnings[0]},
+            {'name': 'LiveBench', 'url': LIVEBENCH, 'ok': livebench_ok, 'checked_at': now,
+             'release': livebench.get('release') if livebench else None},
         ],
+        'supplementary': {'livebench': livebench},
         'models': models, 'warnings': warnings,
         'notes': 'Custo por tarefa em USD; tempo por tarefa em minutos; primeiro token de resposta em segundos; contexto em tokens. Pesos abertos só são declarados quando confirmados na Arena para a mesma variante.',
     }

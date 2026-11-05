@@ -124,7 +124,7 @@
     if (!companies.includes(state.company)) state.company = 'all';
     $('#company').innerHTML = '<option value="all">Todas as empresas</option>' + companies.map(company => `<option value="${esc(company)}">${esc(company)}</option>`).join('');
     $('#company').value = state.company;
-    renderHighlights(); renderTable(); renderRecs(); renderStatus();
+    renderHighlights(); renderTable(); renderRecs(); renderStatus(); renderLivebench();
     if ($('#dialog').open && dialogMode === 'compare') renderCompare(false);
     if (previousVersion && previousVersion !== data.updated_at && network === 'live') toast('Novos dados recebidos. O ranking foi atualizado.');
   }
@@ -146,6 +146,24 @@
     } catch {
       state.network = 'offline'; renderStatus();
     } finally { loading = false; }
+  }
+
+  function renderLivebench() {
+    const benchmark = state.data?.supplementary?.livebench;
+    const usable = benchmark && Array.isArray(benchmark.models) && Array.isArray(benchmark.categories) && /^20\d{2}-\d{2}-\d{2}$/.test(benchmark.release);
+    $('#livebenchSection').hidden = !usable;
+    if (!usable) return;
+    const selector = $('#livebenchCategory');
+    const previous = selector.value;
+    const labels = {'Reasoning':'Raciocínio','Coding':'Código','Agentic Coding':'Código com agentes','Mathematics':'Matemática','Data Analysis':'Análise de dados','Language':'Linguagem','IF':'Seguir instruções'};
+    selector.innerHTML = benchmark.categories.map(category => `<option value="${esc(category)}">${esc(labels[category] || category)}</option>`).join('');
+    if (benchmark.categories.includes(previous)) selector.value = previous;
+    const category = selector.value;
+    const rows = benchmark.models.filter(model => typeof model.name === 'string' && numeric(model.scores?.[category]) && model.scores[category] <= 100).sort((a,b) => b.scores[category] - a.scores[category] || a.name.localeCompare(b.name));
+    $('#livebenchRows').innerHTML = rows.slice(0,10).map((model,i) => `<tr><td>${String(i+1).padStart(2,'0')}</td><td>${esc(model.name)}</td><td>${decimal(model.scores[category])}</td></tr>`).join('') || '<tr><td colspan="3">Sem resultados completos para esta área.</td></tr>';
+    const source = state.data.sources?.find(source => source.name === 'LiveBench');
+    $('#livebenchMeta').textContent = `Edição ${date(benchmark.release + 'T12:00:00Z')} · consultado em ${date(benchmark.collected_at)}${source?.ok === false ? ' · cópia preservada, coleta indisponível' : ''}`;
+    $('#livebenchCount').textContent = `Top ${Math.min(rows.length,10)} de ${rows.length} modelos com medições completas`;
   }
 
   function renderRecs() {
@@ -185,12 +203,13 @@
     const sources = state.data?.sources || [];
     const aa = sources.find(s => s.name === 'Artificial Analysis');
     const arena = sources.find(s => s.name === 'Arena');
+    const livebench = sources.find(s => s.name === 'LiveBench');
     const status = source => `<span class="source-status ${source?.ok ? '' : 'warn'}">${source?.ok ? 'Coleta confirmada' : 'Sem confirmação nesta coleta'}</span>`;
-    showDialog('PROVENIÊNCIA E ATUALIZAÇÃO', `<h2 id="dialogTitle">Fontes abertas. Critérios claros.</h2><p class="dialog-description">O ModelScope reúne dados públicos. Cada fonte mantém sua própria metodologia e pode atualizar seus resultados em horários diferentes.</p><div class="source-block"><h3>Artificial Analysis ${status(aa)}</h3><p>Fonte principal para inteligência, custo por tarefa, tempo por tarefa, primeiro token de resposta e contexto. ${state.data?.models.length || 0} modelos na coleta atual. Não supomos uma versão de índice que a página não declare.</p><a class="source-link" href="https://artificialanalysis.ai/leaderboards/models/" target="_blank" rel="noopener noreferrer">Ver leaderboard ↗</a></div><div class="source-block"><h3>Arena ${status(arena)}</h3><p>Preferência humana expressa no score Arena. Associação apenas quando o nome normalizado e a variante coincidem exatamente. ${Number(arena?.matched_models || 0)} modelos associados na coleta atual. A classificação de pesos também exige declaração da fonte.</p><a class="source-link" href="https://arena.ai/leaderboard/text" target="_blank" rel="noopener noreferrer">Ver Text Arena ↗</a></div><p class="source-note">Última coleta: ${state.data ? `${date(state.data.updated_at)} às ${date(state.data.updated_at,true)} (Brasília)` : 'indisponível'}.<br>A coleta está programada diariamente no GitHub Actions. Com a página aberta, verificamos novos dados a cada cinco minutos. Falhas na fonte principal preservam a última coleta válida. Agendamentos do GitHub podem sofrer atrasos.<br>SWEN.AI e rankings de imagem ou vídeo não alimentam este conjunto automaticamente.</p>`, 'sources');
+    showDialog('PROVENIÊNCIA E ATUALIZAÇÃO', `<h2 id="dialogTitle">Fontes abertas. Critérios claros.</h2><p class="dialog-description">O IAscore reúne dados públicos. Cada fonte mantém sua própria metodologia e pode atualizar seus resultados em horários diferentes.</p><div class="source-block"><h3>Artificial Analysis ${status(aa)}</h3><p>Fonte principal para inteligência, custo por tarefa, tempo por tarefa, primeiro token de resposta e contexto. ${state.data?.models.length || 0} modelos na coleta atual. Não supomos uma versão de índice que a página não declare.</p><a class="source-link" href="https://artificialanalysis.ai/leaderboards/models/" target="_blank" rel="noopener noreferrer">Ver leaderboard ↗</a></div><div class="source-block"><h3>Arena ${status(arena)}</h3><p>Preferência humana expressa no score Arena. Associação apenas quando o nome normalizado e a variante coincidem exatamente. ${Number(arena?.matched_models || 0)} modelos associados na coleta atual. A classificação de pesos também exige declaração da fonte.</p><a class="source-link" href="https://arena.ai/leaderboard/text" target="_blank" rel="noopener noreferrer">Ver Text Arena ↗</a></div><div class="source-block"><h3>LiveBench 1.0 ${status(livebench)}</h3><p>Fonte complementar com tarefas públicas e correção verificável. Dados coletados do repositório oficial, com edição explícita. Cada nota é a média das tarefas de uma área, somente quando a área está completa. Não misturamos essas notas com o índice da Artificial Analysis nem associamos variantes por semelhança.</p><a class="source-link" href="https://github.com/LiveBench/livebench.github.io" target="_blank" rel="noopener noreferrer">Dados e código oficiais ↗</a></div><p class="source-note">Última coleta: ${state.data ? `${date(state.data.updated_at)} às ${date(state.data.updated_at,true)} (Brasília)` : 'indisponível'}.<br>A coleta está programada diariamente no GitHub Actions. Com a página aberta, verificamos novos dados a cada cinco minutos. Falhas na fonte principal preservam a última coleta válida. Agendamentos do GitHub podem sofrer atrasos.<br>SWEN.AI e rankings de imagem ou vídeo não alimentam este conjunto automaticamente.</p>`, 'sources');
   }
 
   function openMethod() {
-    showDialog('COMO LER O RANKING', `<h2 id="dialogTitle">Compare o que é comparável.</h2><p class="dialog-description">A ordenação inicial usa o Intelligence Index da Artificial Analysis. Não criamos uma média que misture inteligência, custo, tempo e preferência humana em uma nota própria.</p><ol class="method-list"><li><strong>Inteligência:</strong> índice técnico publicado pela fonte. Quanto maior, melhor nesse conjunto de avaliações.</li><li><strong>Custo por tarefa:</strong> valor em dólares medido no benchmark. Não equivale ao preço de um milhão de tokens.</li><li><strong>Tempo por tarefa:</strong> minutos para concluir a tarefa. Menor tende a ser melhor. É diferente de velocidade em tokens/s.</li><li><strong>Primeiro token:</strong> segundos até o primeiro token de resposta. Modelos de raciocínio podem levar mais tempo antes de começar a responder.</li><li><strong>Contexto:</strong> janela em tokens. 1k = 1.000 tokens; 1M = 1.000.000 tokens. Maior janela não garante melhor desempenho.</li><li><strong>Arena:</strong> score de preferência humana, mostrado na ficha e na comparação somente quando a variante coincide.</li><li><strong>Dados ausentes:</strong> aparecem como “—” e ficam no fim da ordenação, em qualquer direção. Pesos não confirmados aparecem como “Não informado”.</li><li><strong>Seleções por objetivo:</strong> usam o maior ou menor valor do critério indicado no conjunto atual; não são um benchmark adicional.</li></ol><p class="source-note">O destaque verde na comparação marca o melhor valor observado entre os modelos selecionados. O tipo de licença e os termos comerciais devem ser confirmados com o desenvolvedor antes do uso.</p>`, 'method');
+    showDialog('COMO LER O RANKING', `<h2 id="dialogTitle">Compare o que é comparável.</h2><p class="dialog-description">A ordenação inicial usa o Intelligence Index da Artificial Analysis. Não criamos uma média que misture inteligência, custo, tempo e preferência humana em uma nota própria.</p><ol class="method-list"><li><strong>Inteligência:</strong> índice técnico publicado pela fonte. Quanto maior, melhor nesse conjunto de avaliações.</li><li><strong>Custo por tarefa:</strong> valor em dólares medido no benchmark. Não equivale ao preço de um milhão de tokens.</li><li><strong>Tempo por tarefa:</strong> minutos para concluir a tarefa. Menor tende a ser melhor. É diferente de velocidade em tokens/s.</li><li><strong>Primeiro token:</strong> segundos até o primeiro token de resposta. Modelos de raciocínio podem levar mais tempo antes de começar a responder.</li><li><strong>Contexto:</strong> janela em tokens. 1k = 1.000 tokens; 1M = 1.000.000 tokens. Maior janela não garante melhor desempenho.</li><li><strong>Arena:</strong> score de preferência humana, mostrado na ficha e na comparação somente quando a variante coincide.</li><li><strong>LiveBench 1.0:</strong> seção independente por área, com média aritmética das tarefas completas. A data da edição é diferente da data em que consultamos os dados; não representa o LiveBench 2.0.</li><li><strong>Dados ausentes:</strong> aparecem como “—” e ficam no fim da ordenação, em qualquer direção. Pesos não confirmados aparecem como “Não informado”.</li><li><strong>Seleções por objetivo:</strong> usam o maior ou menor valor do critério indicado no conjunto atual; não são um benchmark adicional.</li></ol><p class="source-note">O destaque verde na comparação marca o melhor valor observado entre os modelos selecionados. O tipo de licença e os termos comerciais devem ser confirmados com o desenvolvedor antes do uso.</p>`, 'method');
   }
 
   function renderCompare(open = true) {
@@ -243,7 +262,7 @@
     const csvCell = value => { const text = String(value ?? ''); return `"${(/^[=+\-@\t\r]/.test(text) ? "'" + text : text).replace(/"/g,'""')}"`; };
     const lines = [header,...filteredModels().map(m => [m.name,m.company,m.type,m.intelligence,m.price,m.task_time_minutes,m.latency,m.context_tokens,m.elo,state.data.updated_at])];
     const url = URL.createObjectURL(new Blob(['\uFEFF'+lines.map(line => line.map(csvCell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
-    const link = document.createElement('a'); link.href = url; link.download = `modelscope-${state.data.version}.csv`;link.click();setTimeout(() => URL.revokeObjectURL(url),1000);
+    const link = document.createElement('a'); link.href = url; link.download = `iascore-${state.data.version}.csv`;link.click();setTimeout(() => URL.revokeObjectURL(url),1000);
     toast('Dados exportados com os filtros atuais.');
   }
 
@@ -271,6 +290,7 @@
     state.direction = state.sort === key ? -state.direction : ['price','latency','task_time_minutes'].includes(key) ? 1 : -1;
     state.sort = key; renderTable();
   }));
+  $('#livebenchCategory').addEventListener('change',renderLivebench);
   $('#search').addEventListener('input',event => { state.query = event.target.value.trim(); renderTable(); });
   $('#company').addEventListener('change',event => { state.company = event.target.value; renderTable(); });
   $('#price').addEventListener('change',event => { state.price = event.target.value; renderTable(); });

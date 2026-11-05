@@ -1,5 +1,5 @@
 {
-  "name": "modelscope",
+  "name": "iascore",
   "version": "2.0.0",
   "private": true,
   "description": "Buildless public AI benchmark dashboard",

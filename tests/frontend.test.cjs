@@ -152,3 +152,19 @@ test('reduced-motion preference prevents the pointer effect',async () => {
     assert.equal(app.d.querySelector('#cursorRing').classList.contains('active'),false);
   } finally {app.close();}
 });
+
+test('LiveBench stays separate, shows its edition and changes category without changing the main ranking',async () => {
+  const data = base();data.sources.push({name:'LiveBench',ok:true});
+  data.supplementary = {livebench:{release:'2026-06-25',collected_at:new Date().toISOString(),categories:['Reasoning','Coding'],models:[{name:'LB Alpha',scores:{Reasoning:70,Coding:50}},{name:'LB Beta',scores:{Reasoning:60,Coding:80}},{name:'Incomplete',scores:{Reasoning:null,Coding:null}}]}};
+  const app = await boot({data});try {
+    assert.equal(app.d.querySelector('#livebenchSection').hidden,false);
+    assert.match(app.d.querySelector('#livebenchMeta').textContent,/2026/);
+    assert.match(app.d.querySelector('#livebenchRows tr').textContent,/LB Alpha/);
+    const selector=app.d.querySelector('#livebenchCategory');selector.value='Coding';selector.dispatchEvent(new app.w.Event('change'));
+    assert.match(app.d.querySelector('#livebenchRows tr').textContent,/LB Beta/);
+    assert.equal(app.d.querySelectorAll('#livebenchRows tr').length,2);
+    assert.equal(app.d.querySelector('#leaderName').textContent,'Alpha (high)');
+    assert.deepEqual(app.errors,[]);
+    assert.match(app.d.title,/IAscore/);
+  } finally {app.close();}
+});
