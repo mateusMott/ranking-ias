@@ -322,24 +322,48 @@
 
   function setupCursor() {
     const ring = $('#cursorRing'), reduced = matchMedia('(prefers-reduced-motion: reduce)'), fine = matchMedia('(pointer: fine)');
-    let enabled = storage.get('modelscope:cursor') !== 'off', frame = 0, x = -100, y = -100, targetX = -100, targetY = -100, hovering = false;
+    const trail = Array.from({length:6},(_,index) => {
+      const dot = document.createElement('span');dot.className = 'cursor-trail';dot.setAttribute('aria-hidden','true');
+      dot.style.setProperty('--trail-size',`${11 - index}px`);dot.style.setProperty('--trail-opacity',String(.65 - index * .08));
+      document.body.appendChild(dot);return {element:dot,x:-100,y:-100};
+    });
+    let enabled = storage.get('modelscope:cursor') !== 'off', frame = 0, x = -100, y = -100, targetX = -100, targetY = -100, hovering = false, pulse;
     const allowed = () => enabled && fine.matches && !reduced.matches;
     const updateButton = () => { $('#cursorBtn').setAttribute('aria-pressed',String(enabled));$('#cursorBtn').setAttribute('aria-label',`${enabled ? 'Desativar' : 'Ativar'} efeito do cursor`); };
-    function stop() { if (frame) cancelAnimationFrame(frame);frame = 0;ring.classList.remove('active'); }
+    function stop() {
+      if (frame) cancelAnimationFrame(frame);frame = 0;ring.classList.remove('active','pressing');
+      trail.forEach(dot => dot.element.classList.remove('active'));pulse?.cancel();
+    }
     function animate() {
-      x += (targetX - x) * .25; y += (targetY - y) * .25;
-      const offset = hovering ? 21.5 : 15;
-      ring.style.transform = `translate3d(${x - offset}px,${y - offset}px,0)`;
-      frame = Math.abs(targetX - x) + Math.abs(targetY - y) > .1 ? requestAnimationFrame(animate) : 0;
+      x += (targetX - x) * .3;y += (targetY - y) * .3;
+      ring.style.transform = `translate3d(${x}px,${y}px,0)`;
+      let previousX = targetX, previousY = targetY, distance = Math.abs(targetX-x)+Math.abs(targetY-y);
+      trail.forEach(dot => {
+        dot.x += (previousX-dot.x) * .32;dot.y += (previousY-dot.y) * .32;
+        dot.element.style.transform = `translate3d(${dot.x}px,${dot.y}px,0)`;
+        distance += Math.abs(previousX-dot.x)+Math.abs(previousY-dot.y);
+        dot.element.classList.toggle('active',Math.abs(targetX-dot.x)+Math.abs(targetY-dot.y)>3);
+        previousX = dot.x;previousY = dot.y;
+      });
+      frame = distance > .5 ? requestAnimationFrame(animate) : 0;
     }
     document.addEventListener('pointermove',event => {
       if (!allowed() || event.pointerType === 'touch') { stop();return; }
-      targetX = event.clientX; targetY = event.clientY;
-      if (!ring.classList.contains('active')) { x = targetX;y = targetY; }
-      hovering = Boolean(event.target.closest('button,a,input,select'));ring.classList.toggle('hovering',hovering);ring.classList.add('active');
+      targetX = event.clientX;targetY = event.clientY;
+      if (!ring.classList.contains('active')) { x = targetX;y = targetY;trail.forEach(dot => {dot.x=x;dot.y=y;}); }
+      hovering = Boolean(event.target.closest?.('button,a,input,select'));
+      ring.classList.toggle('hovering',hovering);ring.classList.add('active');
       if (!frame) frame = requestAnimationFrame(animate);
     },{passive:true});
+    document.addEventListener('pointerdown',event => {
+      if (!allowed() || event.pointerType === 'touch') return;
+      ring.classList.add('pressing');pulse?.cancel();
+      const wave = ring.querySelector('.cursor-wave');
+      pulse = wave?.animate?.([{transform:'translate(-50%,-50%) scale(.5)',opacity:.9},{transform:'translate(-50%,-50%) scale(2.2)',opacity:0}],{duration:550,easing:'ease-out'});
+    },{passive:true});
+    window.addEventListener('pointerup',() => ring.classList.remove('pressing'),{passive:true});
     document.documentElement.addEventListener('pointerleave',stop);window.addEventListener('blur',stop);
+    document.addEventListener('visibilitychange',() => {if(document.visibilityState==='hidden') stop();});
     reduced.addEventListener('change',stop);fine.addEventListener('change',stop);
     $('#cursorBtn').onclick = () => { enabled = !enabled;storage.set('modelscope:cursor',enabled ? 'on' : 'off');updateButton();if (!enabled) stop();toast(`Efeito do cursor ${enabled ? 'ativado' : 'desativado'}.`); };
     updateButton();

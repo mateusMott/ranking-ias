@@ -168,3 +168,21 @@ test('LiveBench stays separate, shows its edition and changes category without c
     assert.match(app.d.title,/IAscore/);
   } finally {app.close();}
 });
+
+test('new cursor follows the pointer, reacts to press and cleans up its trail on exit',async () => {
+  const app=await boot({fine:true});try {
+    const button=app.d.querySelector('#themeBtn'),ring=app.d.querySelector('#cursorRing');
+    button.dispatchEvent(new app.w.MouseEvent('pointermove',{clientX:100,clientY:80,bubbles:true}));
+    assert.equal(ring.classList.contains('active'),true);
+    assert.equal(ring.classList.contains('hovering'),true);
+    assert.equal(app.d.querySelectorAll('.cursor-trail').length,6);
+    button.dispatchEvent(new app.w.MouseEvent('pointerdown',{bubbles:true}));
+    assert.equal(ring.classList.contains('pressing'),true);
+    app.w.dispatchEvent(new app.w.MouseEvent('pointerup'));
+    assert.equal(ring.classList.contains('pressing'),false);
+    app.d.documentElement.dispatchEvent(new app.w.MouseEvent('pointerleave'));
+    assert.equal(ring.classList.contains('active'),false);
+    assert.equal(app.d.querySelectorAll('.cursor-trail.active').length,0);
+    assert.deepEqual(app.errors,[]);
+  } finally {app.close();}
+});
